@@ -74,39 +74,69 @@ module.exports = {
       res.status(500).json({ message: "Server error", error });
     }
   },
-  resetPassword: async (req,res)=>{
-    try {
-    const { token } = req.params;
-    const { password, confirmPassword } = req.body;
+  forgotPassword: async (req, res) => {
+  try {
+    const { email } = req.body;
 
-    // Validate Input
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match." });
+    if (!email) {
+      return res.status(400).json({ message: "Please provide an email address." });
     }
 
-    // Hash the incoming token to compare with stored hashed token
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find user with valid token and check if it has expired (e.g., within 1 hour)
-    const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }
+    // Search for user using case-insensitive trim
+    const user = await User.findOne({ 
+      email: email.toLowerCase().trim() 
     });
 
     if (!user) {
-      return res.status(400).json({ message: "Token is invalid or has expired." });
+      // Debugging: check your console to see what exactly was sent
+      console.log(`Failed attempt for email: ${email}`);
+      return res.status(404).json({ message: "User with this email doesn't exist." });
     }
 
-    // Set new password (The pre-save hook in your model should hash this)
-    user.password = password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordExpires = Date.now() + 3600000; 
+
     await user.save();
 
-    res.status(200).json({ message: "Password reset successful. You can now login." });
+    // Log the token so you can test manually in Postman or Browser
+    console.log("TESTING RESET LINK:", `http://localhost:5173/resetpassword/${resetToken}`);
+    
+    res.status(200).json({ 
+      message: "Reset link generated!", 
+      token: resetToken // Only keep this during development!
+    }); 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+},
+
+  // 2. VERIFY TOKEN AND SAVE NEW PASSWORD
+  resetPassword: async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { password } = req.body;
+
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+      const user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: Date.now() }
+      });
+
+      if (!user) return res.status(400).json({ message: "Invalid or expired link." });
+
+      // Hash new password and clear reset fields
+      user.password = await bcrypt.hash(password, 10);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      res.status(200).json({ message: "Password updated successfully!" });
     } catch (err) {
-      res.status(500).json({ message: "Server error during password reset." });
+      res.status(500).json({ message: "Error updating password." });
     }
   },
   getUserProfile: async (req, res) => {
