@@ -2,6 +2,7 @@ const User = require('../model/userModel');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 dotenv.config();
 
@@ -73,7 +74,41 @@ module.exports = {
       res.status(500).json({ message: "Server error", error });
     }
   },
+  resetPassword: async (req,res)=>{
+    try {
+    const { token } = req.params;
+    const { password, confirmPassword } = req.body;
 
+    // Validate Input
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match." });
+    }
+
+    // Hash the incoming token to compare with stored hashed token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with valid token and check if it has expired (e.g., within 1 hour)
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Token is invalid or has expired." });
+    }
+
+    // Set new password (The pre-save hook in your model should hash this)
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successful. You can now login." });
+    } catch (err) {
+      res.status(500).json({ message: "Server error during password reset." });
+    }
+  },
   getUserProfile: async (req, res) => {
     const userId = req.params.id;
 
