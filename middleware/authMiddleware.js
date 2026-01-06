@@ -1,18 +1,35 @@
 const jwt = require('jsonwebtoken');
+const User = require('../model/userModel'); // 🟢 Import your User model
 
-const protect = (req, res, next) => {
-  let token = req.headers.authorization?.split(' ')[1]; // "Bearer TOKEN_HERE"
+const protect = async (req, res, next) => {
+  let token;
 
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token' });
+  // Check for token in headers
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      // Get token from header
+      token = req.headers.authorization.split(' ')[1];
+
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+
+      // 🟢 Fetch user from database and attach to request
+      // We use .select('-password') to ensure security
+      req.user = await User.findById(decoded.id).select('-password');
+
+      if (!req.user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Auth Middleware Error:", error);
+      res.status(401).json({ message: 'Not authorized, token failed' });
+    }
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-    req.user = decoded.id; // Add the user ID to the request object
-    next();
-  } catch (error) {
-    res.status(401).json({ message: 'Token is not valid' });
+  if (!token) {
+    res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
 
