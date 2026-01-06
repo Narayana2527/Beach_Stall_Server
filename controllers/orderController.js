@@ -52,7 +52,6 @@ module.exports = {
   },
   getAllOrders: async (req, res) => {
     try {
-      // Populate user details to show name in the admin dashboard
       const orders = await Order.find({})
         .populate("userId", "name email")
         .sort({ createdAt: -1 });
@@ -62,7 +61,6 @@ module.exports = {
     }
   },
 
-  // 2. Update Order Status
   updateOrderStatus: async (req, res) => {
     try {
       const { status } = req.body;
@@ -77,7 +75,6 @@ module.exports = {
         "Cancelled"
       ];
 
-      // 1. Validate Input
       if (!status || !validStatuses.includes(status)) {
         return res.status(400).json({ 
           success: false,
@@ -85,33 +82,29 @@ module.exports = {
         });
       }
 
-      // 2. Find Order
       const order = await Order.findById(id);
       if (!order) {
         return res.status(404).json({ success: false, message: "Order not found" });
       }
 
-      // 3. Update Status
+      // Update the status
       order.status = status;
 
-      // 4. Handle "Succeeded" (Final Delivery)
+      // Handle Delivery Logic
       if (status === "Succeeded") {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
-        order.isPaid = true; // Safety check: if delivered, it's usually paid
+        order.isPaid = true; 
       }
       
-      // 5. Handle "Cancelled" 
       if (status === "Cancelled") {
-        // Optional: If you track inventory, you could increment product stock back here
         order.isDelivered = false; 
       }
 
-      // 6. Save and return populated data
       const updatedOrder = await order.save();
       
-      // We populate userId again so the admin panel doesn't lose the customer name in the UI
-      const finalOrder = await updatedOrder.populate("userId", "name email");
+      // 🟢 CRITICAL: Re-populate userId so the Admin UI still shows the name
+      const finalOrder = await Order.findById(updatedOrder._id).populate("userId", "name email");
 
       res.status(200).json(finalOrder);
 
@@ -119,7 +112,7 @@ module.exports = {
       console.error("Status Update Error:", error);
       res.status(500).json({ 
         success: false, 
-        message: "Server failed to update order status", 
+        message: "Server failed to update status", 
         error: error.message 
       });
     }

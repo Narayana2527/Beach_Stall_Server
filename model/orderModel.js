@@ -1,4 +1,3 @@
-// models/orderModel.js
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
@@ -28,13 +27,16 @@ const orderSchema = new mongoose.Schema({
   paymentMethod: { type: String, required: true, default: "COD" },
   totalPrice: { type: Number, required: true, default: 0.0 },
   isPaid: { type: Boolean, default: false },
+  paidAt: { type: Date },
+  // 🟢 UPDATED STATUS AND ADDED DELIVERY TRACKING
   status: { 
     type: String, 
     required: true, 
     default: "Pending",
-    enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"]
+    enum: ["Pending", "Order Preparing", "Order Ready", "Out for Delivery", "Succeeded", "Cancelled"]
   },
-  paidAt: { type: Date },
+  isDelivered: { type: Boolean, default: false },
+  deliveredAt: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Order", orderSchema);
