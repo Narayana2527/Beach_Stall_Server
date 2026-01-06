@@ -69,37 +69,59 @@ module.exports = {
       const { id } = req.params;
 
       const validStatuses = [
-        "Pending", "Order Preparing", "Order Ready", 
-        "Out for Delivery", "Succeeded", "Cancelled"
+        "Pending", 
+        "Order Preparing", 
+        "Order Ready", 
+        "Out for Delivery", 
+        "Succeeded", 
+        "Cancelled"
       ];
 
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status value received" });
+      // 1. Validate Input
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          success: false,
+          message: `Invalid status. Must be one of: ${validStatuses.join(", ")}` 
+        });
       }
 
-      // 🟢 Use findById to check existence first
+      // 2. Find Order
       const order = await Order.findById(id);
-
       if (!order) {
-        return res.status(404).json({ message: "Order not found in database" });
+        return res.status(404).json({ success: false, message: "Order not found" });
       }
 
-      // Update fields
+      // 3. Update Status
       order.status = status;
 
+      // 4. Handle "Succeeded" (Final Delivery)
       if (status === "Succeeded") {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
+        order.isPaid = true; // Safety check: if delivered, it's usually paid
+      }
+      
+      // 5. Handle "Cancelled" 
+      if (status === "Cancelled") {
+        // Optional: If you track inventory, you could increment product stock back here
+        order.isDelivered = false; 
       }
 
+      // 6. Save and return populated data
       const updatedOrder = await order.save();
       
-      // Return the updated order object
-      res.status(200).json(updatedOrder);
+      // We populate userId again so the admin panel doesn't lose the customer name in the UI
+      const finalOrder = await updatedOrder.populate("userId", "name email");
+
+      res.status(200).json(finalOrder);
 
     } catch (error) {
-      console.error("Error updating order:", error);
-      res.status(500).json({ message: "Internal Server Error", error: error.message });
+      console.error("Status Update Error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Server failed to update order status", 
+        error: error.message 
+      });
     }
   },
 };

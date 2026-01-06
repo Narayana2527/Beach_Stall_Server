@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const bodyParser = require("body-parser");
+// body-parser is now built into express, you can simplify this
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 
@@ -21,24 +21,27 @@ const PORT = process.env.PORT || 5000;
 // Initialize DB
 connectDB();
 
-// Middleware
-app.use(express.json());
-app.use(cors({
-    origin: "*", 
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
-}));
-app.use(bodyParser.json());
+// 🟢 Middleware Configuration
+// Use express.json() with a limit to handle larger payloads if necessary
+app.use(express.json({ limit: '10mb' })); 
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Note: /uploads will not persist images on Vercel
+app.use(cors({
+    origin: "*", // For production, replace with your actual frontend URL
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+// 🟢 static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// 🟢 Routes
 app.use("/api/user", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/product", productRoutes);
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders", orderRoutes); // This handles your status updates
 app.use("/api", bookingRoutes);
 app.use("/api", contactRoutes);
 
@@ -46,10 +49,18 @@ app.get('/', (req, res) => {
     res.status(200).json({ message: "Restaurant API is live!" });
 });
 
-// Export for Vercel
+// 🟢 Global Error Handler (Highly recommended for Vercel)
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ 
+        success: false, 
+        message: "Internal Server Error",
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 module.exports = app;
 
-// Only listen if running locally
 if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 }
