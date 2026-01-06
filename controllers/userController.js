@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 dotenv.config();
 
@@ -75,45 +76,52 @@ module.exports = {
     }
   },
   forgotPassword: async (req, res) => {
-  try {
-    const { email } = req.body;
+    try {
+      const email = req.body.email.toLowerCase().trim();
+      const user = await User.findOne({ email });
 
-    if (!email) {
-      return res.status(400).json({ message: "Please provide an email address." });
+      if (!user) {
+        return res.status(404).json({ message: "User with this email doesn't exist." });
+      }
+
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      // THE LINK: This points to your React Frontend Route
+      const resetURL = `http://localhost:5173/resetpassword/${resetToken}`; 
+      // Change localhost to your actual deployed frontend URL later
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee;">
+          <h2 style="color: #4f46e5;">Password Reset Request</h2>
+          <p>You requested to reset your password for The Beach Stall.</p>
+          <p>Please click the button below to set a new password. This link expires in 1 hour.</p>
+          <a href="${resetURL}" style="background:#4f46e5; color:white; padding:12px 20px; text-decoration:none; border-radius:8px; display:inline-block;">Reset Password</a>
+          <p style="margin-top:20px; font-size:12px; color:#888;">If you didn't request this, please ignore this email.</p>
+        </div>
+      `;
+
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Password Reset Link - The Beach Stall',
+          html: htmlContent,
+        });
+
+        res.status(200).json({ message: "Email sent successfully!" });
+      } catch (err) {
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+        return res.status(500).json({ message: "Error sending email. Try again later." });
+      }
+
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
     }
-
-    // Search for user using case-insensitive trim
-    const user = await User.findOne({ 
-      email: email.toLowerCase().trim() 
-    });
-
-    if (!user) {
-      // Debugging: check your console to see what exactly was sent
-      console.log(`Failed attempt for email: ${email}`);
-      return res.status(404).json({ message: "User with this email doesn't exist." });
-    }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-
-    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpires = Date.now() + 3600000; 
-
-    await user.save();
-
-    // Log the token so you can test manually in Postman or Browser
-    console.log("TESTING RESET LINK:", `http://localhost:5173/resetpassword/${resetToken}`);
-    
-    res.status(200).json({ 
-      message: "Reset link generated!", 
-      token: resetToken // Only keep this during development!
-    }); 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-},
-
-  // 2. VERIFY TOKEN AND SAVE NEW PASSWORD
+  },
   resetPassword: async (req, res) => {
     try {
       const { token } = req.params;
