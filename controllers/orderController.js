@@ -117,4 +117,38 @@ module.exports = {
       });
     }
   },
+  cancelOrder: async (req, res) => {
+    try {
+      const order = await Order.findById(req.params.id);
+
+      if (!order) {
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+
+      // 🟢 Security: req.user is an object from 'protect' middleware. Use ._id
+      if (order.userId.toString() !== req.user._id.toString()) {
+        return res.status(401).json({ success: false, message: "Not authorized to cancel this order" });
+      }
+
+      // 🟢 Business Logic: Don't allow cancellation if food is already out or delivered
+      const nonCancellable = ["Out for Delivery", "Succeeded", "Cancelled"];
+      if (nonCancellable.includes(order.status)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Cancellation blocked: Order is already ${order.status}` 
+        });
+      }
+
+      order.status = "Cancelled";
+      const updatedOrder = await order.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Order has been cancelled",
+        order: updatedOrder
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 };
