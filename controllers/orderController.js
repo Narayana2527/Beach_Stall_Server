@@ -66,36 +66,40 @@ module.exports = {
   updateOrderStatus: async (req, res) => {
     try {
       const { status } = req.body;
+      const { id } = req.params;
+
       const validStatuses = [
-        "Pending", 
-        "Order Preparing", 
-        "Order Ready", 
-        "Out for Delivery", 
-        "Succeeded", 
-        "Cancelled"
+        "Pending", "Order Preparing", "Order Ready", 
+        "Out for Delivery", "Succeeded", "Cancelled"
       ];
 
       if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status update" });
+        return res.status(400).json({ message: "Invalid status value received" });
       }
 
-      const order = await Order.findById(req.params.id);
+      // 🟢 Use findById to check existence first
+      const order = await Order.findById(id);
 
-      if (order) {
-        order.status = status;
-        // If status is Succeeded, we can mark as delivered
-        if (status === "Succeeded") {
-          order.isDelivered = true;
-          order.deliveredAt = Date.now();
-        }
-        
-        const updatedOrder = await order.save();
-        res.json(updatedOrder);
-      } else {
-        res.status(404).json({ message: "Order not found" });
+      if (!order) {
+        return res.status(404).json({ message: "Order not found in database" });
       }
+
+      // Update fields
+      order.status = status;
+
+      if (status === "Succeeded") {
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+      }
+
+      const updatedOrder = await order.save();
+      
+      // Return the updated order object
+      res.status(200).json(updatedOrder);
+
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      console.error("Error updating order:", error);
+      res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
 };
