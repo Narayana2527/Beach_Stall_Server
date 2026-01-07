@@ -90,7 +90,7 @@ module.exports = {
       await user.save();
 
       // THE LINK: This points to your React Frontend Route
-      const resetURL = `http://localhost:5173/resetpassword/${resetToken}`; 
+      const resetURL = `https://beachstall.netlify.app/resetpassword/${resetToken}`; 
       // Change localhost to your actual deployed frontend URL later
 
       const htmlContent = `
