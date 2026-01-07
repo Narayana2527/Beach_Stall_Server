@@ -85,12 +85,14 @@ module.exports = {
       }
 
       const resetToken = crypto.randomBytes(32).toString('hex');
+
+      // This is what goes in the DB
       user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      user.resetPasswordExpires = Date.now() + 3600000; 
       await user.save();
 
-      // THE LINK: This points to your React Frontend Route
-      const resetURL = `https://beachstall.netlify.app/resetpassword/${resetToken}`; 
+      // This is what goes to the USER (must be the raw resetToken)
+      const resetURL = `https://beachstall.netlify.app/resetpassword/${resetToken}`;
       // Change localhost to your actual deployed frontend URL later
 
       const htmlContent = `
@@ -122,21 +124,25 @@ module.exports = {
       res.status(500).json({ message: "Server error" });
     }
   },
-  resetPassword: async (req, res) => {
+ resetPassword: async (req, res) => {
     try {
       const { token } = req.params;
       const { password } = req.body;
 
+      // 1. Hash the token from the URL to compare it with the DB
       const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
+      // 2. Find the user with that hashed token AND check if it's still valid (not expired)
       const user = await User.findOne({
         resetPasswordToken: hashedToken,
-        resetPasswordExpires: { $gt: Date.now() }
+        resetPasswordExpires: { $gt: Date.now() } // $gt means "Greater Than"
       });
 
-      if (!user) return res.status(400).json({ message: "Invalid or expired link." });
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired link." });
+      }
 
-      // Hash new password and clear reset fields
+      // 3. Update password and clear the reset fields
       user.password = await bcrypt.hash(password, 10);
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
