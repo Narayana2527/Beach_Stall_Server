@@ -10,16 +10,16 @@ const bookingSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String, required: true },
   eventDate: { type: Date, required: true },
+  guests: { type: String, required: true }, // Added for table size
   category: {
     type: String,
-    enum: ['Wedding', 'Photography', 'Table Booking'],
+    // Updated to match your 5 new categories
+    enum: ['Veg Curry', 'Non-Veg Curry', 'Veg Biryani', 'Non-Veg Biryani', 'Catering'],
     required: true
   },
-  details: {
-    subCategory: { type: String }, 
-    nestedOption: { type: String }, 
-    customNotes: { type: String }   
-  },
+  speciality: { type: String, required: true }, // The specific dish chosen
+  // seating: { type: String }, // Sea-Facing, etc.
+  customNotes: { type: String },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
