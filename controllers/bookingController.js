@@ -11,7 +11,7 @@ module.exports = {
         guests, 
         category, 
         speciality, 
-        seating, 
+         
         customNotes 
       } = req.body;
 
