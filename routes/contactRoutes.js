@@ -6,6 +6,6 @@ const { submitContactForm, getInquiries } = require('../controllers/contactContr
 router.post('/contact', submitContactForm);
 
 // You can add admin-only protection here later
-router.get('/getContact', getInquiries);
+router.get('/contact/all', getInquiries);
 
 module.exports = router;

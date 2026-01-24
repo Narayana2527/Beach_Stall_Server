@@ -48,5 +48,22 @@ module.exports = {
       console.error("Booking Error:", err);
       res.status(500).json({ error: "Server error", details: err.message });
     }
+  },
+  getAllBookings: async (req, res) => {
+    try {
+      const bookings = await BookingModel.find().sort({ createdAt: -1 });
+      
+      res.status(200).json({
+        success: true,
+        count: bookings.length,
+        data: bookings
+      });
+    } catch (err) {
+      console.error("Fetch Bookings Error:", err);
+      res.status(500).json({ 
+        success: false, 
+        error: "Server error while fetching bookings" 
+      });
+    }
   }
 };
