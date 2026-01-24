@@ -1,4 +1,5 @@
 const Contact = require('../model/Contact');
+const Notification = require('../model/Notification');
 
 exports.submitContactForm = async (req, res) => {
   try {
@@ -12,12 +13,29 @@ exports.submitContactForm = async (req, res) => {
       });
     }
 
+    // 2. Save the Inquiry
     const inquiry = await Contact.create({
       name,
       email,
       subject,
       message
     });
+
+    // --- ADDED: CREATE NOTIFICATION ---
+    try {
+      await Notification.create({
+        title: 'New Contact Inquiry',
+        message: `${name} sent a message regarding: ${subject || 'No Subject'}`,
+        type: 'contact',      // Helps frontend choose the icon
+        sourceId: inquiry._id, // Reference to the actual inquiry
+        isRead: false
+      });
+    } catch (notificationError) {
+      // We log this but don't stop the request, 
+      // so the user still gets their "Success" message.
+      console.error('Notification failed to save:', notificationError);
+    }
+    // ----------------------------------
 
     // 3. Response
     res.status(201).json({
@@ -34,6 +52,7 @@ exports.submitContactForm = async (req, res) => {
     });
   }
 };
+
 exports.getInquiries = async (req, res) => {
   try {
     const inquiries = await Contact.find().sort('-createdAt');

@@ -1,17 +1,16 @@
 const BookingModel = require('../model/Booking');
 const UserModel = require('../model/userModel'); 
+const Notification = require('../model/Notification'); // Import Notification Model
 
 module.exports = {
   userBooking: async (req, res) => {
     try {
-      // Destructure the new fields sent from the React Frontend
       const { 
         phone, 
         eventDate, 
         guests, 
         category, 
         speciality, 
-         
         customNotes 
       } = req.body;
 
@@ -31,12 +30,25 @@ module.exports = {
         guests,
         category,
         speciality,
-        
         customNotes: customNotes || ''
       });
 
       // 3. Save to MongoDB
       await newBooking.save();
+
+      // --- ADDED: CREATE NOTIFICATION ---
+      try {
+        await Notification.create({
+          title: 'New Event Booking',
+          message: `${user.name} booked a ${category} (${speciality}) for ${guests} guests with special notes ${customNotes}.`,
+          type: 'booking',
+          isRead: false
+        });
+      } catch (notificationError) {
+        console.error("Notification creation failed:", notificationError);
+        // We don't return an error here so the user's booking isn't interrupted
+      }
+      // ----------------------------------
 
       res.status(201).json({ 
         success: true, 
