@@ -1,26 +1,15 @@
 const BookingModel = require('../model/Booking');
 const UserModel = require('../model/userModel'); 
-const Notification = require('../model/Notification'); // Import Notification Model
+const Notification = require('../model/Notification');
 
 module.exports = {
   userBooking: async (req, res) => {
     try {
-      const { 
-        phone, 
-        eventDate, 
-        guests, 
-        category, 
-        speciality, 
-        customNotes 
-      } = req.body;
+      const { phone, eventDate, guests, category, speciality, customNotes } = req.body;
 
-      // 1. Verify User
       const user = await UserModel.findById(req.user);
-      if (!user) {
-        return res.status(404).json({ message: "Account verification failed." });
-      }
+      if (!user) return res.status(404).json({ message: "Account verification failed." });
 
-      // 2. Create New Booking Record
       const newBooking = new BookingModel({
         userId: req.user,
         userName: user.name, 
@@ -33,31 +22,22 @@ module.exports = {
         customNotes: customNotes || ''
       });
 
-      // 3. Save to MongoDB
       await newBooking.save();
 
-      // --- ADDED: CREATE NOTIFICATION ---
+      // Create Notification with detailed message
       try {
         await Notification.create({
-          title: 'New Event Booking',
-          message: `${user.name} booked a ${category} (${speciality}) for ${guests} guests with special notes ${customNotes}.`,
+          title: `New Booking: ${user.name}`,
+          message: `Phone: ${phone} | Guests: ${guests} | Event: ${category} (${speciality}) | Notes: ${customNotes || 'None'}`,
           type: 'booking',
           isRead: false
         });
-      } catch (notificationError) {
-        console.error("Notification creation failed:", notificationError);
-        // We don't return an error here so the user's booking isn't interrupted
+      } catch (err) {
+        console.error("Notification Log Failed:", err);
       }
-      // ----------------------------------
 
-      res.status(201).json({ 
-        success: true, 
-        message: "Your seashore reservation has been confirmed!",
-        booking: newBooking 
-      });
-
+      res.status(201).json({ success: true, message: "Reservation confirmed!", booking: newBooking });
     } catch (err) {
-      console.error("Booking Error:", err);
       res.status(500).json({ error: "Server error", details: err.message });
     }
   }
