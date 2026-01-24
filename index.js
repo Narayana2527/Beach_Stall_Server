@@ -8,7 +8,6 @@ const connectDB = require('./config/db');
 // Import Routes
 const bookingRoutes = require('./routes/bookingRoutes');
 const contactRoutes = require('./routes/contactRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const cartRoutes = require('./routes/cartRoutes');
@@ -45,7 +44,6 @@ app.use("/api/product", productRoutes);
 app.use("/api/orders", orderRoutes); // This handles your status updates
 app.use("/api", bookingRoutes);
 app.use("/api", contactRoutes);
-app.use("/api/notifications", notificationRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).json({ message: "Restaurant API is live!" });

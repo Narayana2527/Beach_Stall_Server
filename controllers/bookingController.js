@@ -1,15 +1,27 @@
 const BookingModel = require('../model/Booking');
 const UserModel = require('../model/userModel'); 
-const Notification = require('../model/Notification');
 
 module.exports = {
   userBooking: async (req, res) => {
     try {
-      const { phone, eventDate, guests, category, speciality, customNotes } = req.body;
+      // Destructure the new fields sent from the React Frontend
+      const { 
+        phone, 
+        eventDate, 
+        guests, 
+        category, 
+        speciality, 
+        
+        customNotes 
+      } = req.body;
 
+      // 1. Verify User
       const user = await UserModel.findById(req.user);
-      if (!user) return res.status(404).json({ message: "Account verification failed." });
+      if (!user) {
+        return res.status(404).json({ message: "Account verification failed." });
+      }
 
+      // 2. Create New Booking Record
       const newBooking = new BookingModel({
         userId: req.user,
         userName: user.name, 
@@ -19,25 +31,21 @@ module.exports = {
         guests,
         category,
         speciality,
+        
         customNotes: customNotes || ''
       });
 
+      // 3. Save to MongoDB
       await newBooking.save();
 
-      // Create Notification with detailed message
-      try {
-        await Notification.create({
-          title: `New Booking: ${user.name}`,
-          message: `Phone: ${phone} | Guests: ${guests} | Event: ${category} (${speciality}) | Notes: ${customNotes || 'None'}`,
-          type: 'booking',
-          isRead: false
-        });
-      } catch (err) {
-        console.error("Notification Log Failed:", err);
-      }
+      res.status(201).json({ 
+        success: true, 
+        message: "Your seashore reservation has been confirmed!",
+        booking: newBooking 
+      });
 
-      res.status(201).json({ success: true, message: "Reservation confirmed!", booking: newBooking });
     } catch (err) {
+      console.error("Booking Error:", err);
       res.status(500).json({ error: "Server error", details: err.message });
     }
   }
