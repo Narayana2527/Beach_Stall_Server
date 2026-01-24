@@ -1,5 +1,5 @@
 const Contact = require('../model/Contact');
-const Notification = require('../model/Notification');
+
 exports.submitContactForm = async (req, res) => {
   try {
     const { name, email, subject, message } = req.body;
