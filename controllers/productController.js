@@ -18,12 +18,55 @@ const streamUpload = (buffer) => {
 };
 module.exports = {
   // Get all products
-  getProducts: async (req, res) => {
+  getAllProducts: async (req, res) => {
     try {
       const products = await Product.find({});
       res.status(200).json(products);
     } catch (error) {
       res.status(500).json({ message: error.message });
+    }
+  },
+  getProducts: async (req, res) => {
+    try {
+      const { category, maxPrice, search, page = 1, limit = 12 } = req.query;
+      
+      // Constructing a high-performance query object
+      let query = {};
+
+      if (category) {
+        query.category = { $in: category.split(',') };
+      }
+
+      if (maxPrice) {
+        query.price = { $lte: Number(maxPrice) };
+      }
+
+      if (search) {
+        // NOTE: For millions of docs, consider MongoDB Atlas Search instead of Regex
+        query.name = { $regex: search, $options: "i" };
+      }
+
+      const skip = (Number(page) - 1) * Number(limit);
+
+      // Execute query with performance optimizations
+      const [products, totalCount] = await Promise.all([
+        Product.find(query)
+          .select("name price category description image isFeatured") // Data shedding
+          .sort({ category: 1, price: 1, createdAt: -1 }) // Matches our index
+          .skip(skip)
+          .limit(Number(limit))
+          .lean(), // Bypasses Mongoose hydration (much faster)
+        Product.countDocuments(query) // For pagination UI
+      ]);
+
+      res.status(200).json({
+        products,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: Number(page),
+        totalResults: totalCount
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
 

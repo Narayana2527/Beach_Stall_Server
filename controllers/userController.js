@@ -8,6 +8,30 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET_KEY, { expiresIn: "1d" });
 };
 
+const sendTokenResponse = (user, statusCode, res) => {
+  const token = generateToken(user._id);
+
+  const cookieOptions = {
+    expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+    httpOnly: true, // Crucial: prevents JS access
+    secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+    sameSite: 'Lax', // Protects against some CSRF while allowing navigation
+  };
+
+  res
+    .status(statusCode)
+    .cookie('token', token, cookieOptions)
+    .json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      }
+    });
+};
+
 module.exports = {
   // --- REGISTER ---
   userRegister: async (req, res) => {
@@ -37,12 +61,9 @@ module.exports = {
         terms
       });
 
-      res.status(201).json({
-        _id: user.id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user.id),
-      });
+      // FIX: Use the cookie helper here too!
+      sendTokenResponse(user, 201, res);
+      
     } catch (error) {
       res.status(500).json({ message: "Server error during registration", error: error.message });
     }
@@ -55,18 +76,23 @@ module.exports = {
       const user = await User.findOne({ email: email.toLowerCase() });
 
       if (user && (await bcrypt.compare(password, user.password))) {
-        res.status(200).json({
-          _id: user.id,
-          name: user.name,
-          email: user.email,
-          token: generateToken(user.id),
-        });
+        sendTokenResponse(user, 200, res);
       } else {
         res.status(401).json({ message: "Invalid email or password" });
       }
     } catch (error) {
-      res.status(500).json({ message: "Server error during login" });
+      res.status(500).json({ message: "Login error" });
     }
+  },
+
+  // --- LOGOUT ---
+  userLogout: async (req, res) => {
+    // Clear cookie by setting it to 'none' and expiring it immediately
+    res.cookie('token', 'none', {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true,
+    });
+    res.status(200).json({ success: true, message: 'User logged out' });
   },
 
   // --- FORGOT PASSWORD ---
