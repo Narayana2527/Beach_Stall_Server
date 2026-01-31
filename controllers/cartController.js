@@ -4,52 +4,30 @@ module.exports = {
   // Add item to cart (Handles both initial add and +/- increments)
   addToCart: async (req, res) => {
     const { productId, name, price, image, quantity } = req.body;
-    const userId = req.user; // Ensure your 'protect' middleware sets req.user
+    const userId = req.user; // Set by protect middleware
 
     try {
       let cart = await Cart.findOne({ userId });
-      // Determine how many to add. Default to 1 if not specified.
-      const amountChange = quantity !== undefined ? Number(quantity) : 1;
+      const amount = Number(quantity) || 1;
 
       if (cart) {
-        const itemIndex = cart.items.findIndex((p) => p.productId === productId);
-
+        const itemIndex = cart.items.findIndex(p => p.productId === productId);
         if (itemIndex > -1) {
-          // UPDATE EXISTING ITEM
-          cart.items[itemIndex].quantity += amountChange;
-
-          // If quantity becomes 0 or less, remove the item entirely
-          if (cart.items[itemIndex].quantity <= 0) {
-            cart.items.splice(itemIndex, 1);
-          }
-        } else {
-          // ADD NEW ITEM (Only if amountChange is positive)
-          if (amountChange > 0) {
-            cart.items.push({ 
-              productId, 
-              name, 
-              price, 
-              image, 
-              quantity: amountChange 
-            });
-          }
+          cart.items[itemIndex].quantity += amount;
+          if (cart.items[itemIndex].quantity <= 0) cart.items.splice(itemIndex, 1);
+        } else if (amount > 0) {
+          cart.items.push({ productId, name, price, image, quantity: amount });
         }
         await cart.save();
-        return res.status(200).json(cart);
       } else {
-        // CREATE NEW CART
-        if (amountChange <= 0) {
-          return res.status(200).json({ items: [] });
-        }
-        const newCart = await Cart.create({
+        cart = await Cart.create({
           userId,
-          items: [{ productId, name, price, image, quantity: amountChange }]
+          items: [{ productId, name, price, image, quantity: amount }]
         });
-        return res.status(201).json(newCart);
       }
+      res.status(200).json(cart);
     } catch (error) {
-      console.error("Add to cart error:", error);
-      res.status(500).json({ message: "Error updating cart", error: error.message });
+      res.status(500).json({ message: "Cart update failed" });
     }
   },
 
