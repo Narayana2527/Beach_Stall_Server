@@ -1,10 +1,9 @@
 const Cart = require("../model/cartModel");
 
 module.exports = {
-  // Add item to cart (Handles both initial add and +/- increments)
   addToCart: async (req, res) => {
     const { productId, name, price, image, quantity } = req.body;
-    const userId = req.user; // Set by protect middleware
+    const userId = req.user._id; // Extract _id from the full user object
 
     try {
       let cart = await Cart.findOne({ userId });
@@ -22,31 +21,29 @@ module.exports = {
       } else {
         cart = await Cart.create({
           userId,
-          items: [{ productId, name, price, image, quantity: amount }]
+          items: [{ productId, name, price, image, quantity: Math.max(1, amount) }]
         });
       }
       res.status(200).json(cart);
     } catch (error) {
-      res.status(500).json({ message: "Cart update failed" });
+      console.error("Cart update error:", error);
+      res.status(500).json({ message: "Cart update failed", error: error.message });
     }
   },
 
-  // Get cart for specific user
   getCart: async (req, res) => {
     try {
-      // Find cart and ensure it returns an empty items array if no cart exists
-      const cart = await Cart.findOne({ userId: req.user });
+      const cart = await Cart.findOne({ userId: req.user._id });
       res.status(200).json(cart || { items: [] });
     } catch (error) {
       res.status(500).json({ message: "Error fetching cart", error: error.message });
     }
   },
 
-  // Remove specific item (Trash icon click)
   removeFromCart: async (req, res) => {
     const { productId } = req.params;
     try {
-      const cart = await Cart.findOne({ userId: req.user });
+      const cart = await Cart.findOne({ userId: req.user._id });
       if (cart) {
         cart.items = cart.items.filter((item) => item.productId !== productId);
         await cart.save();

@@ -11,7 +11,7 @@ module.exports = {
     }
 
     const order = new Order({
-      userId: req.user, // Ensure req.user is the ID from your protect middleware
+      userId: req.user._id, // Ensure req.user is the ID from your protect middleware
       orderItems: orderItems.map(item => ({
         name: item.name,
         quantity: item.quantity,
@@ -27,7 +27,7 @@ module.exports = {
     });
 
     const createdOrder = await order.save();
-    await Cart.findOneAndDelete({ userId: req.user });
+    await Cart.findOneAndDelete({ userId: req.user._id });
 
     res.status(201).json(createdOrder);
   } catch (error) {
@@ -38,7 +38,7 @@ module.exports = {
     getMyOrders: async (req, res) => {
     try {
       
-      const orders = await Order.find({ userId: req.user })
+      const orders = await Order.find({ userId: req.user._id })
         .populate({
           path:'orderItems.productId',
           model:"Product"
